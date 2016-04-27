@@ -24,13 +24,13 @@ public:
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     bool checkIfContourIsValid() {                              // obviously in a production grade program
-        if (fltArea < MIN_CONTOUR_AREA) return false;           // we would have a much more robust function for 
+        if (fltArea < MIN_CONTOUR_AREA) return false;           // we would have a much more robust function for
         return true;                                            // identifying if a contour is valid !!
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     static bool sortByBoundingRectXPosition(const ContourWithData& cwdLeft, const ContourWithData& cwdRight) {      // this function allows us to sort
-        return(cwdLeft.boundingRect.x < cwdRight.boundingRect.x);                                                   // the contours from left to right
+        return ( (cwdLeft.boundingRect.x + 10000*(cwdLeft.boundingRect.y / 55 * 55)) < (cwdRight.boundingRect.x + 10000*(cwdRight.boundingRect.y / 55 * 55)));                                                 // the contours from left to right
     }
 
 };
@@ -109,12 +109,10 @@ int main() {
 
     matThreshCopy = matThresh.clone();              // make a copy of the thresh image, this in necessary b/c findContours modifies the image
 
-    std::vector<std::vector<cv::Point> > ptContours;        // declare a vector for the contours
-    std::vector<cv::Vec4i> v4iHierarchy;                    // declare a vector for the hierarchy (we won't use this in this program but this may be helpful for reference)
+    std::vector<std::vector<cv::Point> > ptContours;        // declare a vector for the contours                // declare a vector for the hierarchy (we won't use this in this program but this may be helpful for reference)
 
     cv::findContours(matThreshCopy,             // input image, make sure to use a copy since the function will modify this image in the course of finding contours
         ptContours,                             // output contours
-        v4iHierarchy,                           // output hierarchy
         cv::RETR_EXTERNAL,                      // retrieve the outermost contours only
         cv::CHAIN_APPROX_SIMPLE);               // compress horizontal, vertical, and diagonal segments and leave only their end points
 
@@ -138,11 +136,7 @@ int main() {
 
     for (int i = 0; i < validContoursWithData.size(); i++) {            // for each contour
 
-                                                                // draw a green rect around the current char
-        cv::rectangle(matTestingNumbers,                            // draw rectangle on original image
-                      validContoursWithData[i].boundingRect,        // rect to draw
-                      cv::Scalar(0, 255, 0),                        // green
-                      2);                                           // thickness
+                                        // thickness
 
         cv::Mat matROI = matThresh(validContoursWithData[i].boundingRect);          // get ROI image of bounding rect
 
@@ -160,6 +154,15 @@ int main() {
 
         float fltCurrentChar = (float)matCurrentChar.at<float>(0, 0);
 
+                                                                        // draw a green rect around the current char
+        cv::rectangle(matTestingNumbers,                            // draw rectangle on original image
+                      validContoursWithData[i].boundingRect,        // rect to draw
+                      cv::Scalar(0, 255, 0),                        // green
+                      1);
+         std::string letter;
+         letter = letter + char(int(fltCurrentChar));
+         validContoursWithData[i].boundingRect.y -= 40;
+         cv::putText(matTestingNumbers, letter, cv::Point(validContoursWithData[i].boundingRect.x , validContoursWithData[i].boundingRect.y+40),0,1,cv::Scalar(0,0,255) );
         strFinalString = strFinalString + char(int(fltCurrentChar));        // append current char to full string
     }
 

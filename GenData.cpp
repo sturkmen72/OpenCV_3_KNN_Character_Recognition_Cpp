@@ -14,17 +14,36 @@ const int MIN_CONTOUR_AREA = 100;
 const int RESIZED_IMAGE_WIDTH = 20;
 const int RESIZED_IMAGE_HEIGHT = 30;
 
+
+struct boundingRects_sorter
+{
+    bool operator ()( const std::vector<cv::Point>& a, const std::vector<cv::Point> & b )
+    {
+        cv::Rect ra(cv::boundingRect(a));
+        cv::Rect rb(cv::boundingRect(b));
+        // scale factor for y should be larger than img.width
+        return ( (ra.x + 10000*(ra.y / 55 * 55)) < (rb.x + 10000*(rb.y / 55 * 55)));
+    }
+};
+
+struct boundingRects_sorter_tb
+{
+    bool operator ()( const std::vector<cv::Point>& a, const std::vector<cv::Point> & b )
+    {
+        return ( a[0].y  < b[0].y );
+    }
+};
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int main() {
 
     cv::Mat imgTrainingNumbers;         // input image
-    cv::Mat imgGrayscale;               // 
+    cv::Mat imgGrayscale;               //
     cv::Mat imgBlurred;                 // declare various images
     cv::Mat imgThresh;                  //
     cv::Mat imgThreshCopy;              //
 
-    std::vector<std::vector<cv::Point> > ptContours;        // declare contours vector
-    std::vector<cv::Vec4i> v4iHierarchy;                    // declare contours hierarchy
+    std::vector<std::vector<cv::Point> > contours;        // declare contours vector
+    std::vector<std::vector<cv::Point> > boundingRects;
 
     cv::Mat matClassificationInts;      // these are our training classifications, note we will have to perform some conversions before writing to file later
 
@@ -66,14 +85,26 @@ int main() {
     imgThreshCopy = imgThresh.clone();          // make a copy of the thresh image, this in necessary b/c findContours modifies the image
 
     cv::findContours(imgThreshCopy,             // input image, make sure to use a copy since the function will modify this image in the course of finding contours
-        ptContours,                             // output contours
-        v4iHierarchy,                           // output hierarchy
+        contours,                             // output contours
         cv::RETR_EXTERNAL,                      // retrieve the outermost contours only
         cv::CHAIN_APPROX_SIMPLE);               // compress horizontal, vertical, and diagonal segments and leave only their end points
 
-    for (int i = 0; i < ptContours.size(); i++) {                           // for each contour
-        if (cv::contourArea(ptContours[i]) > MIN_CONTOUR_AREA) {                // if contour is big enough to consider
-            cv::Rect boundingRect = cv::boundingRect(ptContours[i]);                // get the bounding rect
+       for (size_t i = 0; i < contours.size(); ++i)
+    {
+        cv::Rect _boundingRect = cv::boundingRect( cv::Mat(contours[i]) );
+        std::vector<cv::Point> pts;
+        pts.push_back( cv::Point(_boundingRect.x,_boundingRect.y) );
+        pts.push_back( cv::Point(_boundingRect.x + _boundingRect.width, _boundingRect.y) );
+        pts.push_back( cv::Point(_boundingRect.x + _boundingRect.width, _boundingRect.y + _boundingRect.height) );
+        pts.push_back( cv::Point(_boundingRect.x, _boundingRect.y + _boundingRect.height) );
+        boundingRects.push_back( pts );
+    }
+
+    sort(boundingRects.begin(), boundingRects.end(), boundingRects_sorter());
+
+    int counter = 0;
+    for (size_t i = 0; i < boundingRects.size(); i++) {                           // for each contour
+       cv::Rect boundingRect = cv::boundingRect(boundingRects[i]);                // get the bounding rect
 
             cv::rectangle(imgTrainingNumbers, boundingRect, cv::Scalar(0, 0, 255), 2);      // draw red rectangle around each contour as we ask user for input
 
@@ -86,7 +117,11 @@ int main() {
             cv::imshow("matROIResized", matROIResized);                 // show resized ROI image for reference
             cv::imshow("imgTrainingNumbers", imgTrainingNumbers);       // show training numbers image, this will now have red rectangles drawn on it
 
-            int intChar = cv::waitKey(0);           // get key press
+            int intChar = intValidChars[counter];
+            counter++;
+            if( counter > 35) counter = 0;
+            std::cout << intChar;
+            //cv::waitKey(0);           // get key press
 
             if (intChar == 27) {        // if esc key was pressed
                 return(0);              // exit program
@@ -101,8 +136,7 @@ int main() {
 
                 matTrainingImagesAsFlattenedFloats.push_back(matImageFlattenedFloat);       // add to Mat as though it was a vector, this is necessary due to the
                                                                                             // data types that KNearest.train accepts
-            }   // end if
-        }   // end if
+            }   // end if67
     }   // end for
 
     std::cout << "training complete\n\n";
